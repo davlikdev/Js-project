@@ -340,16 +340,8 @@ h4 {
   aspect-ratio: 1;
 }
 
-.task-button svg {
+.task-button img {
   pointer-events: none;
-}
-
-.task-button svg * {
-  fill: var(--task-text-color);
-}
-
-.task-button:hover svg * {
-  fill: #3E1671;
 }
 
 .task-button:not(:last-child) {
