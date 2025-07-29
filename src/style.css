@@ -348,7 +348,7 @@ h4 {
   margin-right: 8px;
 }
 
-.done-task-text {
+.done {
   color: var(--task-done-text-color);
   text-decoration: line-through;
 }
