@@ -6,60 +6,66 @@ const taskListTitleElement = document.querySelector("#task-list-title");
 const doneTaskListTitleElement = document.querySelector("#done-task-list-title");
 
 let tasks = []
-let doneTasks = []
 
 const API_URL = "https://41e41b24fca9ffd8.mokky.dev/tasks"
 
-getTasks()
+await getTasks()
 
 function eventManager() {
 
 }
 
 newTaskFormElement.addEventListener("submit", handleAddTask)
-taskListElement.addEventListener("click", (e) => {
+document.addEventListener("click", (e) => {
     if (e.target.dataset.action === "done") {
-        const taskId = e.target.dataset.id
-        handleCompleteTask(taskId)
+        const taskId = Number(e.target.dataset.id)
+        const isDone = tasks.find(task => task.id === taskId).isDone
+
+        handleCompleteTask(taskId, isDone)
     }
 
     if (e.target.dataset.action === "delete") {
-        const taskId = e.target.dataset.id
+        const taskId = Number(e.target.dataset.id)
         handleDeleteTask(taskId)
     }
 })
 
-function handleAddTask(e) {
+async function handleAddTask(e) {
     e.preventDefault()
     const newItemText = newTaskInputElement.value;
-    fetch(API_URL, {
-        method: "POST",
-        headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            text: newItemText
+    try {
+        const response = fetch(API_URL, {
+            method: "POST",
+            headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                text: newItemText,
+                isDone: false,
+            })
         })
-    }).then(getTasks).then(() => {
-        newTaskInputElement.value = "";
-        newTaskInputElement.focus()
-    })
+        if (response.ok) {
+            const newTask = await response.json()
+            tasks.push(newTask)
+            renderTasks()
+            newTaskInputElement.value = "";
+            newTaskInputElement.focus()
+        } else {
+            throw new Error("Failed to add task")
+        }
+
+    } catch (error) {
+        console.log(error)
+    }
+
 }
 
-function createListItem(text, id, done) {
+function createListItem(text, id, isDone) {
 
-    let styles = "task-text"
+    let styles = isDone ? "task-text done" : "task-text"
 
-    if (done) {
-        styles += " done"
-        const doneListItem = `<li class="task-list-item">
-                <div class="${styles}">${text}</div>
-              </li>`
-        return doneListItem
-    }
-    if (!done) {
-        const listItem = `
+    const listItem = `
                         <li class="task-list-item">
                         <div class="${styles}">${text}</div>
                         <div class="task-actions">
@@ -70,84 +76,87 @@ function createListItem(text, id, done) {
                                 <img src="../../public/images/delete.png" height="19" width="18" alt="delete task button">
                             </button>
                         </div>
-                    </li>   
-                  
+                    </li>
     `
-        return listItem
-    }
+    return listItem
 
 }
 
-function handleCompleteTask(id) {
-    {
-        fetch(API_URL + "/" + id, {
+async function handleCompleteTask(id, isDone) {
+    try {
+        const response = await fetch(API_URL + "/" + id, {
             method: "PATCH",
             headers: {
                 Accept: "application/json",
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                isDone: true
+                isDone: !isDone
             })
-        }).then(getTasks)
+        })
+        if (response.ok) {
+            const task = tasks.find(task => task.id === id)
+            console.log(task)
+            task.isDone = !task.isDone
+            renderTasks()
+        } else {
+            throw new Error("Failed to complete task")
+        }
+    } catch (error) {
+        console.log(error)
+    }
 
+}
 
+async function handleDeleteTask(id) {
+    try {
+        const response = await fetch(API_URL + "/" + id, {
+            method: "DELETE",
+            headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+            }
+        })
+        if (response.ok) {
+
+            tasks = tasks.filter(task => task.id !== id)
+            renderTasks()
+        } else {
+            throw new Error("Failed to delete task")
+        }
+    } catch (error) {
+        console.log(error)
     }
 }
 
-function handleDeleteTask(id) {
-    fetch(API_URL + "/" + id, {
-        method: "DELETE",
-        headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
+function renderTasks() {
+    taskListElement.innerHTML = ""
+    doneTaskListElement.innerHTML = ""
+
+    for (const task of tasks) {
+        if (!task.isDone) {
+            taskListElement.innerHTML += createListItem(task.text, task.id, false)
+        } else {
+            doneTaskListElement.innerHTML += createListItem(task.text, task.id, task.isDone)
         }
-    }).then((res) => {
-
-        const filteredTasks = []
-        for (const task of tasks) {
-            if (task.id === id) {
-                return null
-            }
-            filteredTasks.push(task)
-
-        }
-        tasks = filteredTasks
-        renderTasks()
-
-    })
-
+    }
+    taskListTitleElement.textContent = `Tasks to do - 
+    ${tasks.filter(task => !task.isDone).length}`
+    doneTaskListTitleElement.textContent = `Done tasks - 
+    ${tasks.filter(task => task.isDone).length}`
 }
 
-function renderTasks(   ) {
-    let tasksHTML = ""
-    let doneTasksHTML = ""
-
-    tasks.forEach(task => {
-        tasksHTML += createListItem(task.text, task.id, false)
-        taskListElement.innerHTML = tasksHTML
-    })
-    doneTasks.forEach(task => {
-        doneTasksHTML += createListItem(task.text, task.id, task.isDone)
-        doneTaskListElement.innerHTML = doneTasksHTML
-    })
-
-    taskListTitleElement.textContent = `Tasks to do - ${tasks.length}`
-    doneTaskListTitleElement.textContent = `Done tasks - ${doneTasks.length}`
-}
-
-function getTasks() {
-
-
-    fetch(API_URL)
-        .then(res => res.json())
-        .then(data => {
-            tasks = data.filter(task => !task.isDone)
-            doneTasks = data.filter(task => task.isDone)
+async function getTasks() {
+    try {
+        const response = await fetch(API_URL)
+        if (response.ok) {
+            const data = await response.json()
+            tasks = await data
             renderTasks()
-
-
-            // console.log(tasks)
-            // console.log(doneTasks)
-        })
+        } else {
+            throw new Error("Failed to get tasks")
+        }
+    } catch (error) {
+        console.log(error)
+    }
 }
