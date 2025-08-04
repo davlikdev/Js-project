@@ -1,3 +1,5 @@
+import {httpClient} from "./httpClient.js"
+
 const newTaskInputElement = document.querySelector("#new-task-input");
 const taskListElement = document.querySelector(".task-list")
 const doneTaskListElement = document.querySelector(".done-task-list")
@@ -34,26 +36,15 @@ async function handleAddTask(e) {
     e.preventDefault()
     const newItemText = newTaskInputElement.value;
     try {
-        const response = fetch(API_URL, {
-            method: "POST",
-            headers: {
-                Accept: "application/json",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                text: newItemText,
-                isDone: false,
-            })
+        const newTask = await httpClient.post("tasks", {
+            text: newItemText,
+            isDone: false,
         })
-        if (response.ok) {
-            const newTask = await response.json()
-            tasks.push(newTask)
-            renderTasks()
-            newTaskInputElement.value = "";
-            newTaskInputElement.focus()
-        } else {
-            throw new Error("Failed to add task")
-        }
+
+        tasks.push(newTask)
+        renderTasks()
+        newTaskInputElement.value = "";
+        newTaskInputElement.focus()
 
     } catch (error) {
         console.log(error)
@@ -84,24 +75,12 @@ function createListItem(text, id, isDone) {
 
 async function handleCompleteTask(id, isDone) {
     try {
-        const response = await fetch(API_URL + "/" + id, {
-            method: "PATCH",
-            headers: {
-                Accept: "application/json",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                isDone: !isDone
-            })
-        })
-        if (response.ok) {
-            const task = tasks.find(task => task.id === id)
-            console.log(task)
-            task.isDone = !task.isDone
-            renderTasks()
-        } else {
-            throw new Error("Failed to complete task")
-        }
+        await httpClient.patch("tasks", {
+            isDone: !isDone
+        }, id)
+        const task = tasks.find(task => task.id === id)
+        task.isDone = !task.isDone
+        renderTasks()
     } catch (error) {
         console.log(error)
     }
@@ -110,20 +89,10 @@ async function handleCompleteTask(id, isDone) {
 
 async function handleDeleteTask(id) {
     try {
-        const response = await fetch(API_URL + "/" + id, {
-            method: "DELETE",
-            headers: {
-                Accept: "application/json",
-                "Content-Type": "application/json",
-            }
-        })
-        if (response.ok) {
+        await httpClient.delete("tasks", id)
+        tasks = tasks.filter(task => task.id !== id)
+        renderTasks()
 
-            tasks = tasks.filter(task => task.id !== id)
-            renderTasks()
-        } else {
-            throw new Error("Failed to delete task")
-        }
     } catch (error) {
         console.log(error)
     }
@@ -148,14 +117,9 @@ function renderTasks() {
 
 async function getTasks() {
     try {
-        const response = await fetch(API_URL)
-        if (response.ok) {
-            const data = await response.json()
-            tasks = await data
-            renderTasks()
-        } else {
-            throw new Error("Failed to get tasks")
-        }
+        tasks = await httpClient.get("tasks")
+        renderTasks()
+
     } catch (error) {
         console.log(error)
     }
