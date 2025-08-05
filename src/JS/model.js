@@ -1,7 +1,8 @@
 import {httpClient} from "./httpClient.js";
+import {taskRepository} from "./taskRepository.js";
 
 class TaskModel {
-    constructor(initialState=[]) {
+    constructor(initialState = []) {
         this.state = initialState
     }
 
@@ -23,9 +24,10 @@ class TaskModel {
 
     async completeTask(id, isDone) {
         try {
-            await httpClient.patch("tasks", {
+            const data = {
                 isDone: !isDone
-            }, id)
+            }
+            await taskRepository.patchTask(id, data)
             const task = this.state.find(task => task.id === id)
             task.isDone = !task.isDone
         } catch (error) {
@@ -35,10 +37,11 @@ class TaskModel {
 
     async addTask(text) {
         try {
-            const newTask = await httpClient.post("tasks", {
+            const data = {
                 text,
                 isDone: false,
-            })
+            }
+            const newTask = taskRepository.postTask(data)
             this.state.push(newTask)
 
         } catch (error) {
@@ -48,7 +51,7 @@ class TaskModel {
 
     async deleteTask(id) {
         try {
-            await httpClient.delete("tasks", id)
+            await taskRepository.deleteTask(id)
             this.state = this.state.filter(task => task.id !== id)
 
         } catch (error) {
@@ -58,11 +61,12 @@ class TaskModel {
 
     async getTasksFromServer() {
         try {
-            this.state = await httpClient.get("tasks")
+            this.state = await taskRepository.getTasks()
 
         } catch (error) {
             console.log(error)
         }
     }
 }
+
 export const taskModel = new TaskModel()
